@@ -129,8 +129,8 @@ class Solver3DDPC:
 			self.H_real[-1] *= 1.0j/total_source
 			self.H_imag[-1] *= 1.0/total_source
 			print("3D weak object transfer function {:02d}/{:02d} has been evaluated.".format(rot_index+1, self.dpc_num), end="\r")
-		self.H_real = np.array(self.H_real)
-		self.H_imag = np.array(self.H_imag)
+		self.H_real = np.array(self.H_real).astype('complex64')
+		self.H_imag = np.array(self.H_imag).astype('complex64')
 
 	def _V2RI(self, V_real, V_imag):
 		'''
@@ -159,8 +159,8 @@ class Solver3DDPC:
 
 	def _prox_LASSO(self, V1_k, y_DV_k, use_gpu):
 		'''
-		_prox_LASSO performs the proximal operator and solves the LASSO problem with L1 norm for total variation regularization.                                   
-		Inputs:                                                                
+		_prox_LASSO performs the proximal operator and solves the LASSO problem with L1 norm for total variation regularization.
+		Inputs:
 			V1_k      		: complex scattering potential
 			y_DV_k    		: Lagrange multipliers for the gradient vectors of the scattering potential
 			use_gpu   		: flag to specify gpu usage
@@ -198,18 +198,18 @@ class Solver3DDPC:
 
 	def _prox_projection(self, V1_k, V2_k, y_V2_k, boundary_constraint):
 		'''
-		_prox_projection performs Euclidean norm projection to impose positivity or negativity constraints on the scattering potential.                   
-		Inputs:                                                                  
+		_prox_projection performs Euclidean norm projection to impose positivity or negativity constraints on the scattering potential.
+		Inputs:
 		   V1_k                : complex scattering potential
 		   V2_k                : splitted complex scattering potential
 		   y_V2_k              : Lagrange multipliers for the splitted scattering potential
 		   boundary_constraint : indicate whether to use positive or negative constraint on the scattering potential
-		Output:                                                                  
+		Output:
 		   V2_k                : updated splitted complex scattering potential
-		'''                      
+		'''
 		V2_k   = V1_k + y_V2_k
 		V_real = V2_k[:,:,:,1]
-		V_imag = V2_k[:,:,:,0] 
+		V_imag = V2_k[:,:,:,0]
 
 		if boundary_constraint["real"]=="positive":
 			V_real[V_real<0.0] = 0.0
@@ -296,8 +296,8 @@ class Solver3DDPC:
 
 	def solve(self, method="Tikhonov", tv_max_iter=20, boundary_constraint={"real":"negative", "imag":"negative"}, use_gpu=False):
 		'''
-		_prox_LASSO performs the proximal operator and solves the LASSO problem with L1 norm for total variation regularization.                                   
-		Inputs:                                                                
+		_prox_LASSO performs the proximal operator and solves the LASSO problem with L1 norm for total variation regularization.
+		Inputs:
 			method   		    : select "Tikhonov" or "TV" deconvolution methods.
 			tv_max_iter		    : If "TV" method is used, specify the number of iterations of the ADMM algorithm
 			boundary_constraint : indicate whether to use positive or negative constraint on the scattering potential
@@ -310,7 +310,7 @@ class Solver3DDPC:
 
 		AHA         = [(self.H_imag.conj()*self.H_imag).sum(axis=0), (self.H_imag.conj()*self.H_real).sum(axis=0),\
 		               (self.H_real.conj()*self.H_imag).sum(axis=0), (self.H_real.conj()*self.H_real).sum(axis=0)]
-		fIntensity  = F_3D(self.dpc_imgs).transpose(3, 0, 1, 2)
+		fIntensity  = F_3D(self.dpc_imgs).transpose(3, 0, 1, 2).astype('complex64')
 
 		if method == "Tikhonov":
 			print("="*10+" Solving 3D DPC with Tikhonov regularization "+"="*10)
@@ -329,9 +329,9 @@ class Solver3DDPC:
 			fDx            = np.zeros(self.dpc_imgs.shape[:3], dtype='complex64')
 			fDy            = np.zeros(self.dpc_imgs.shape[:3], dtype='complex64')
 			fDz            = np.zeros(self.dpc_imgs.shape[:3], dtype='complex64')
-			fDx[0, 0, 0]   = 1.0; fDx[0, -1, 0] = -1.0; fDx = F_3D(fDx);
-			fDy[0, 0, 0]   = 1.0; fDy[-1, 0, 0] = -1.0; fDy = F_3D(fDy);
-			fDz[0, 0, 0]   = 1.0; fDz[0, 0, -1] = -1.0; fDz = F_3D(fDz);
+			fDx[0, 0, 0]   = 1.0; fDx[0, -1, 0] = -1.0; fDx = F_3D(fDx).astype('complex64')
+			fDy[0, 0, 0]   = 1.0; fDy[-1, 0, 0] = -1.0; fDy = F_3D(fDy).astype('complex64')
+			fDz[0, 0, 0]   = 1.0; fDz[0, 0, -1] = -1.0; fDz = F_3D(fDz).astype('complex64')
 			AHA[0]        += self.rho*(fDx*fDx.conj() + fDy*fDy.conj() + fDz*fDz.conj() + 1.0)
 			AHA[3]        += self.rho*(fDx*fDx.conj() + fDy*fDy.conj() + fDz*fDz.conj() + 1.0)
 			if use_gpu:
